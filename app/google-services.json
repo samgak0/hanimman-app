@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "43690844721",
+    "project_id": "myapp-a3cea",
+    "storage_bucket": "myapp-a3cea.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:43690844721:android:f0d72619a1f601a416ab10",
+        "android_client_info": {
+          "package_name": "org.devkirby.hanimman"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyChHfiztE1FCli2jz_rwK_8gXzr7kVkA2A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
