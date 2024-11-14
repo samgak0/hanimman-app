@@ -57,4 +57,5 @@ dependencies {
     implementation(libs.firebase.database)
     implementation(libs.firebase.analytics)
     implementation(libs.okhttp3)
+    implementation(libs.gson)
 }
