@@ -6,11 +6,17 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
 
+import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.gson.Gson;
@@ -30,27 +36,46 @@ import okhttp3.Response;
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
-    private static final int NOTIFICATION_PERMISSION_REQUERT_CODE = 1;
+    private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 1;
     private final Gson gson = new Gson();
 
-    @SuppressLint("HardwareIds")
+    @SuppressLint({"HardwareIds", "SetJavaScriptEnabled"})
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         ActivityMainBinding binding = ActivityMainBinding.inflate(getLayoutInflater());
+
+        WebView webView = binding.webView;
+
         setContentView(binding.getRoot());
 
+        EdgeToEdge.enable(this);
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
+            return insets;
+        });
         requestNotificationPermission();
         logDeviceId();
         fetchAndSendToken();
+        EdgeToEdge.enable(this);
+
+        WebSettings webSettings = webView.getSettings();
+        webSettings.setJavaScriptEnabled(true);
+        webSettings.setDomStorageEnabled(true);
+        webSettings.setLoadWithOverviewMode(true);
+        webSettings.setUseWideViewPort(true);
+        webSettings.setDefaultTextEncodingName("utf-8");
+        webView.setOnLongClickListener(v -> true);
+        webView.setLongClickable(false);
+        webView.loadUrl("http://10.0.2.2:3000");
     }
 
     private void requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS)
                     != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_PERMISSION_REQUERT_CODE);
+                ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_PERMISSION_REQUEST_CODE);
             }
         }
     }
@@ -82,7 +107,6 @@ public class MainActivity extends AppCompatActivity {
         return Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
     }
 
-
     private void sendTokenToServer(String androidId, String token) {
         ExecutorService executor = Executors.newSingleThreadExecutor();
         executor.execute(() -> {
@@ -93,7 +117,7 @@ public class MainActivity extends AppCompatActivity {
 
                 RequestBody body = RequestBody.create(json, MediaType.get("application/json; charset=utf-8"));
                 Request request = new Request.Builder()
-                        .url("https://server.samgak.store/api/users/token")
+                        .url("https://10.0.2.2:8080/api/users/token")
                         .put(body)
                         .build();
 
@@ -106,7 +130,6 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-
     private void handleServerResponse(Response response) throws Exception {
         if (response.isSuccessful() && response.body() != null) {
             Log.d(TAG, "Response: " + response.body().string());
@@ -118,7 +141,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == NOTIFICATION_PERMISSION_REQUERT_CODE) {
+        if (requestCode == NOTIFICATION_PERMISSION_REQUEST_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Log.d(TAG, "Notification permission granted");
             } else {
