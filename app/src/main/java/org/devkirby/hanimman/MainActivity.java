@@ -2,6 +2,7 @@ package org.devkirby.hanimman;
 
 import android.annotation.SuppressLint;
 import android.content.pm.PackageManager;
+import android.graphics.Rect;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -12,6 +13,7 @@ import android.webkit.WebView;
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
@@ -68,7 +70,19 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setDefaultTextEncodingName("utf-8");
         webView.setOnLongClickListener(v -> true);
         webView.setLongClickable(false);
-        webView.loadUrl("http://10.0.2.2:3000");
+        webView.loadUrl("http://192.168.101.34:3000");
+        webView.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
+            Rect rect = new Rect();
+            webView.getWindowVisibleDisplayFrame(rect);
+            int screenHeight = webView.getRootView().getHeight();
+            int keypadHeight = screenHeight - rect.bottom;
+
+            ConstraintLayout.LayoutParams layoutParams = (ConstraintLayout.LayoutParams) webView.getLayoutParams();
+
+            layoutParams.bottomMargin = Math.max(keypadHeight, 0);
+
+            webView.setLayoutParams(layoutParams);
+        });
     }
 
     private void requestNotificationPermission() {
@@ -117,7 +131,7 @@ public class MainActivity extends AppCompatActivity {
 
                 RequestBody body = RequestBody.create(json, MediaType.get("application/json; charset=utf-8"));
                 Request request = new Request.Builder()
-                        .url("https://10.0.2.2:8080/api/users/token")
+                        .url("http://192.168.101.34/api/users/token")
                         .put(body)
                         .build();
 
