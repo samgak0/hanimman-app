@@ -1,6 +1,7 @@
 package org.devkirby.hanimman;
 
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Rect;
 import android.os.Build;
@@ -70,7 +71,6 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setDefaultTextEncodingName("utf-8");
         webView.setOnLongClickListener(v -> true);
         webView.setLongClickable(false);
-        webView.loadUrl("http://192.168.101.34:3000");
         webView.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
             Rect rect = new Rect();
             webView.getWindowVisibleDisplayFrame(rect);
@@ -83,6 +83,23 @@ public class MainActivity extends AppCompatActivity {
 
             webView.setLayoutParams(layoutParams);
         });
+        
+        Intent intent = getIntent();
+        if (intent != null && intent.getExtras() != null) {
+            for (String key : intent.getExtras().keySet()) {
+                String value = intent.getStringExtra(key);
+                Log.d("MainActivity", "Key: " + key + ", Value: " + value);
+            }
+            String senderId = intent.getExtras().getString("senderId");
+            if (senderId != null) {
+                Log.d("MainActivity", senderId);
+                webView.loadUrl("http://192.168.101.34:3000/chats/" + senderId);
+            } else {
+                Log.e("MainActivity", "senderId is null");
+            }
+        } else {
+            webView.loadUrl("http://192.168.101.34:3000");
+        }
     }
 
     private void requestNotificationPermission() {
