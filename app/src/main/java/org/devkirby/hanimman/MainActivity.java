@@ -1,11 +1,15 @@
 package org.devkirby.hanimman;
 
 import android.annotation.SuppressLint;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Rect;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.provider.Settings;
 import android.util.Log;
 import android.webkit.WebSettings;
@@ -20,6 +24,7 @@ import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.gson.Gson;
@@ -41,6 +46,41 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 1;
     private final Gson gson = new Gson();
+    private WebView webView;
+    private String senderId;
+    private final BroadcastReceiver messageReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.d("MainActivity", "Received broadcast");
+
+            Bundle extras = intent.getExtras();
+
+            // Bundle 데이터를 Map으로 변환
+            Map<String, String> data = new java.util.HashMap<>();
+            assert extras != null;
+            for (String key : extras.keySet()) {
+                Object value = extras.get(key);
+                if (value != null) {
+                    data.put(key, value.toString());
+                }
+            }
+
+            String senderId = data.get("senderId");
+
+
+            if (senderId != null && senderId.equals(MainActivity.this.senderId)) {
+                webView.setVerticalScrollBarEnabled(false);
+
+                new Handler().postDelayed(() -> webView.setVerticalScrollBarEnabled(true), 1000);
+                webView.evaluateJavascript("window.NativeInterface.reloadMessages()", null);
+            } else {
+                String title = data.get("title");
+                String content = data.get("content");
+                MyNotificationHelper.showNotification(context, title, content, data);
+                temporarilyDisableScrollBar();
+            }
+        }
+    };
 
     @SuppressLint({"HardwareIds", "SetJavaScriptEnabled"})
     @Override
@@ -48,7 +88,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         ActivityMainBinding binding = ActivityMainBinding.inflate(getLayoutInflater());
 
-        WebView webView = binding.webView;
+        webView = binding.webView;
 
         setContentView(binding.getRoot());
 
@@ -83,23 +123,30 @@ public class MainActivity extends AppCompatActivity {
 
             webView.setLayoutParams(layoutParams);
         });
-        
+
+
         Intent intent = getIntent();
         if (intent != null && intent.getExtras() != null) {
             for (String key : intent.getExtras().keySet()) {
                 String value = intent.getStringExtra(key);
                 Log.d("MainActivity", "Key: " + key + ", Value: " + value);
             }
-            String senderId = intent.getExtras().getString("senderId");
+            senderId = intent.getExtras().getString("senderId");
             if (senderId != null) {
                 Log.d("MainActivity", senderId);
                 webView.loadUrl("http://192.168.101.34:3000/chats/" + senderId);
+                temporarilyDisableScrollBar();
             } else {
                 Log.e("MainActivity", "senderId is null");
             }
         } else {
             webView.loadUrl("http://192.168.101.34:3000");
+            temporarilyDisableScrollBar();
         }
+
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+                messageReceiver, new IntentFilter("MY_NOTIFICATION")
+        );
     }
 
     private void requestNotificationPermission() {
@@ -109,6 +156,12 @@ public class MainActivity extends AppCompatActivity {
                 ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_PERMISSION_REQUEST_CODE);
             }
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(messageReceiver);
     }
 
     @SuppressLint("HardwareIds")
@@ -167,6 +220,12 @@ public class MainActivity extends AppCompatActivity {
         } else {
             Log.d(TAG, "Request failed: " + response.code());
         }
+    }
+
+    private void temporarilyDisableScrollBar() {
+        webView.setVerticalScrollBarEnabled(false);
+
+        new android.os.Handler().postDelayed(() -> webView.setVerticalScrollBarEnabled(true), 1000);
     }
 
     @Override
