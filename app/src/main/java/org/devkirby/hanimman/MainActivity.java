@@ -32,8 +32,11 @@ import com.google.gson.Gson;
 import org.apache.commons.text.StringEscapeUtils;
 import org.devkirby.hanimman.databinding.ActivityMainBinding;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -47,10 +50,10 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
     private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 1;
-    private static final String URL_FOR_AVD = "http://10.0.2.2:3000/";
-    private static final String URL_FOR_LOCAL = "http://192.168.100.219:3000/";
-    private static final String URL_SERVER_FOR_AVD = "http://10.0.2.2:8080/";
-    private static final String URL_SERVER_FOR_LOCAL = "http://192.168.100.219:8080/";
+    private static final String URL_FOR_AVD = "https://www.samgak.store/";
+    private static final String URL_FOR_LOCAL = "https://www.samgak.store/";
+    private static final String URL_SERVER_FOR_AVD = "https://server.samgak.store/";
+    private static final String URL_SERVER_FOR_LOCAL = "https://server.samgak.store/";
 
     private final Gson gson = new Gson();
     private WebView webView;
@@ -59,7 +62,11 @@ public class MainActivity extends AppCompatActivity {
     private final BroadcastReceiver messageReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            handleBroadcastMessage(context, intent);
+            try {
+                handleBroadcastMessage(context, intent);
+            } catch (URISyntaxException e) {
+                throw new RuntimeException(e);
+            }
         }
     };
 
@@ -90,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(messageReceiver);
     }
 
-    private void initializeUI(ActivityMainBinding binding) {
+    private void initializeUI(@NonNull ActivityMainBinding binding) {
         EdgeToEdge.enable(this);
         ViewCompat.setOnApplyWindowInsetsListener(binding.getRoot(), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -161,26 +168,40 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void handleBroadcastMessage(Context context, Intent intent) {
+    private void handleBroadcastMessage(Context context, Intent intent) throws URISyntaxException {
         Map<String, String> data = extractDataFromIntent(intent);
+        Log.d("MainActivity", "BroadcastReceiver onReceive");
         Log.d("MainActivity", "data = " + data);
         Log.d("MainActivity", "handleBroadcastMessage receiverId = " + receiverId);
 
-        if (receiverId == null) {
-            webView.evaluateJavascript("window.NativeInterface.getReceiveId();", (result) -> MainActivity.this.receiverId = result);
-        }
+        String path = new URI(webView.getUrl()).getPath();
+        Log.d("MainActivity", "handleBroadcastMessage " + path);
 
-        if (receiverId != null && receiverId.equals(data.get("senderId"))) {
-            if (data.get("content") != null) {
-                String receiverName = StringEscapeUtils.escapeEcmaScript(data.get("receiverName"));
-                String content = StringEscapeUtils.escapeEcmaScript(data.get("content"));
-                String createdAt = StringEscapeUtils.escapeEcmaScript(data.get("createdAt"));
-                webView.evaluateJavascript("window.NativeInterface.receiveMessage(\"" + content + "\",\"" + receiverName + "\"," + "\"" + createdAt + "\");", null);
+        if (receiverId == null) {
+            webView.evaluateJavascript("if (window.NativeInterface !== undefined) window.NativeInterface.getReceiveId();", (result) -> MainActivity.this.receiverId = result);
+        }
+        String type = data.get("type");
+
+        assert type != null;
+        if (type.equals("createMessage")) {
+            if (receiverId != null && receiverId.equals(data.get("senderId"))) {
+                if (data.get("content") != null) {
+                    String receiverName = StringEscapeUtils.escapeEcmaScript(data.get("receiverName"));
+                    String content = StringEscapeUtils.escapeEcmaScript(data.get("content"));
+                    String createdAt = StringEscapeUtils.escapeEcmaScript(data.get("createdAt"));
+                    String id = StringEscapeUtils.escapeEcmaScript(data.get("id"));
+                    webView.evaluateJavascript("if (window.NativeInterface !== undefined) window.NativeInterface.receiveMessage(\"" + id + "\",\"" + content + "\",\"" + receiverName + "\"," + "\"" + createdAt + "\");", null);
+                }
+            } else {
+                String receiverName = data.get("receiverName");
+                String content = data.get("content");
+                MyNotificationHelper.showNotification(context, receiverName, content, data);
             }
+        } else if (type.equals("markMessagesAsRead")) {
+            Log.d("MainActivity", "markMessagesAsRead = " + Objects.requireNonNull(data.get("ids")));
+            webView.evaluateJavascript("if (window.NativeInterface !== undefined) window.NativeInterface.setReadMessages(\"" + data.get("ids") + "\");", null);
         } else {
-            String receiverName = data.get("receiverName");
-            String content = data.get("content");
-            MyNotificationHelper.showNotification(context, receiverName, content, data);
+            Log.e("MainActivity", "handleBroadcastMessage unknown type: " + type);
         }
     }
 
